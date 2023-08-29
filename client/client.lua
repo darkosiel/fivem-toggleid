@@ -1,88 +1,57 @@
-frameworkObject = nil
 local shouldDraw = false
 local playerDistances = {}
 
-Citizen.CreateThread(function()
-    frameworkObject = GetFrameworkObject() 
-end)
 RegisterCommand(Config.Command, function()
     shouldDraw = not shouldDraw
-    if Config.Framework == "qb" then
-        frameworkObject.Functions.Notify(Config.Lang["command"], 'success', 3000)
-    end
-    if Config.Framework == "esx" then
-        exports["esx_notify"]:Notify("success", 3000, Config.Lang["command"])
-    end
 end, false)
-Citizen.CreateThread(function()
-    while true do
-        Citizen.Wait(0)
-        if Config.Key == 0 then 
-            return 
-        end
-        if IsControlJustPressed(1, Config.Key) then
-            shouldDraw = not shouldDraw
-            if Config.Framework == "qb" then
-                frameworkObject.Functions.Notify(Config.Lang["command"], 'success', 3000)
-            end
-            if Config.Framework == "esx" then
-                exports["esx_notify"]:Notify("success", 3000, Config.Lang["command"])
-            end
-        end
-    end
-end)
+if Config.Key ~= false then RegisterKeyMapping("toggleid", "Toggle IDs of players", "KEYBOARD", Config.Key) end
+
+local seatOffsets = {
+    [-1] = {x = 0, y = 03},
+    [0] = {x = 0, y = 0.3},
+    [1] = {x = 1, y = 0.3},
+    [2] = {x = 1, y = 0.3},
+    [3] = {x = 2.1, y = 0.3},
+    [4] = {x = 2.1, y = 0.3}
+}
 
 Citizen.CreateThread(function()
     while true do
-        if shouldDraw then 
-			for _, id in ipairs(GetActivePlayers()) do
-				if playerDistances[id] then
-					if (playerDistances[id] < 20) then
-						if IsPedInAnyVehicle(GetPlayerPed(id), true) then
-							local vehicle = GetVehiclePedIsIn(GetPlayerPed(id), true)
-							
-							if GetPedInVehicleSeat(vehicle, -1) == GetPlayerPed(id) then
-								x2, y2, z2 = table.unpack(GetEntityCoords(GetPlayerPed(id), true))
-								DrawText3D(x2, y2-0.3, z2+1, GetPlayerServerId(id), 255,255,255)
-							elseif GetPedInVehicleSeat(vehicle, 0) == GetPlayerPed(id) then
-								x2, y2, z2 = table.unpack(GetEntityCoords(GetPlayerPed(id), true))
-								DrawText3D(x2, y2+0.3, z2+1, GetPlayerServerId(id), 255,255,255)
-							elseif GetPedInVehicleSeat(vehicle, 1) == GetPlayerPed(id) then
-								x2, y2, z2 = table.unpack(GetEntityCoords(GetPlayerPed(id), true))
-								DrawText3D(x2+1, y2-0.3, z2+1, GetPlayerServerId(id), 255,255,255)
-							elseif GetPedInVehicleSeat(vehicle, 2) == GetPlayerPed(id) then
-								x2, y2, z2 = table.unpack(GetEntityCoords(GetPlayerPed(id), true))
-								DrawText3D(x2+1, y2+0.3, z2+1, GetPlayerServerId(id), 255,255,255)
-							elseif GetPedInVehicleSeat(vehicle, 3) == GetPlayerPed(id) then
-								x2, y2, z2 = table.unpack(GetEntityCoords(GetPlayerPed(id), true))
-								DrawText3D(x2+2.1, y2-0.3, z2+1, GetPlayerServerId(id), 255,255,255)
-							elseif GetPedInVehicleSeat(vehicle, 4) == GetPlayerPed(id) then
-								x2, y2, z2 = table.unpack(GetEntityCoords(GetPlayerPed(id), true))
-								DrawText3D(x2+2.1, y2+0.3, z2+1, GetPlayerServerId(id), 255,255,255)
-							end
-						else
-							x2, y2, z2 = table.unpack(GetEntityCoords(GetPlayerPed(id), true))
-							DrawText3D(x2, y2, z2+1, GetPlayerServerId(id), 255,255,255)
-						end
-					end 
-				end
-			end
-        end
-        Citizen.Wait(0)
-    end
-end)
-
-Citizen.CreateThread(function()
-    while true do
+        local playerPos = GetEntityCoords(PlayerPedId())
+        
         for _, id in ipairs(GetActivePlayers()) do
-            x1, y1, z1 = table.unpack(GetEntityCoords(GetPlayerPed(-1), true))
-            x2, y2, z2 = table.unpack(GetEntityCoords(GetPlayerPed(id), true))
-            distance = math.floor(#(vector3(x1,  y1,  z1)-vector3(x2,  y2,  z2)))
-			playerDistances[id] = distance
+            local targetPed = GetPlayerPed(id)
+            local targetPos = GetEntityCoords(targetPed)
+            local distance = math.floor(#(playerPos - targetPos))
+            playerDistances[id] = distance
+            
+            if shouldDraw and playerDistances[id] and (playerDistances[id] < 20) then
+                local x2, y2, z2 = targetPos.x, targetPos.y, targetPos.z
+                
+                local vehicle = GetVehiclePedIsIn(targetPed, false)
+                
+                if vehicle ~= nil then
+                    local seat = GetPedInVehicleSeat(vehicle, id)
+                    
+                    if seatOffsets[seat] then
+                        local offset = seatOffsets[seat]
+                        local labelX = targetPos.x + offset.x
+                        local labelY = targetPos.y + offset.y
+                        local labelZ = targetPos.z + 1
+                        
+                        DrawText3D(labelX, labelY, labelZ, GetPlayerServerId(id), 255, 255, 255)
+                    end
+                else
+                    DrawText3D(targetPos.x, targetPos.y, targetPos.z + 1, GetPlayerServerId(id), 255, 255, 255)
+                end
+            end
         end
-        Citizen.Wait(1000)
+        
+        Citizen.Wait(0)
     end
 end)
+
+
 
 function DrawText3D(x, y, z, text)
     -- Check if coords are visible and get 2D screen coords
